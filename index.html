@@ -510,7 +510,7 @@ var TESTS=[
 {id:3,title:'Тест 3',icon:'📚',color:'#FF9500',make:function(){return S1.concat(S2);},sub:function(){return 'Раздел 1 + 2 • '+(S1.length+S2.length)+' вопросов';}},
 {id:4,title:'Экзамен',icon:'🎓',color:'#FF3B30',exam:true,duration:30*60*1000,make:function(){return shuf(S1.concat(S2)).slice(0,20);},sub:function(){return '20 вопросов • 30 мин • до 4 ошибок';}}
 ];
-var state=null, timerHandle=null;
+var state=null, timerHandle=null, wantTop=false;
 function stats(){try{return JSON.parse(localStorage.getItem(LS))||{};}catch(e){return {};}}
 function saveStats(s){localStorage.setItem(LS,JSON.stringify(s));}
 function addResult(id,r){var s=stats();(s[id]=s[id]||[]).push(r);if(s[id].length>30)s[id].shift();saveStats(s);}
@@ -559,9 +559,7 @@ function renderHome(){
 }
 
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null;}}
-
 function fmtTime(ms){if(ms<0)ms=0;var s=Math.ceil(ms/1000),m=Math.floor(s/60);s=s%60;return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;}
-
 function tickTimer(){
  if(!state||!state.t.exam)return;
  var rem=state.t.duration-(Date.now()-state.startTime);
@@ -576,10 +574,11 @@ function startTest(id,resume){
  else{var qs=t.make();state={t:t,qs:qs,idx:0,pick:new Array(qs.length).fill(null),locked:new Array(qs.length).fill(false),res:new Array(qs.length).fill(null),openC:new Array(qs.length).fill(false),openE:new Array(qs.length).fill(false),startTime:Date.now()};}
  stopTimer();
  if(state.t.exam){timerHandle=setInterval(tickTimer,500);}
- renderQuiz();
+ wantTop=true;renderQuiz();
 }
 
 function renderQuiz(){
+ var keepY=window.scrollY;
  closeAll();
  var q=state.qs[state.idx],N=state.qs.length,i=state.idx,locked=state.locked[i],pick=state.pick[i];
  var h='<div class="top"><div class="toprow"><button class="iconbtn" data-act="home">‹</button><h1>'+state.t.title+'</h1>';
@@ -604,7 +603,8 @@ function renderQuiz(){
  if(state.openC[i])h+=accBlock('c',q);
  if(state.openE[i])h+=accBlock('e',q);
  h+='</div>';
- document.getElementById('app').innerHTML=h;bindPhotos();window.scrollTo(0,0);
+ document.getElementById('app').innerHTML=h;bindPhotos();
+ if(wantTop){window.scrollTo(0,0);wantTop=false;}else{window.scrollTo(0,keepY);}
 }
 
 function finish(timeout){
@@ -635,9 +635,9 @@ document.addEventListener('click',function(e){
  else if(act==='reset'){if(confirm('Удалить все сохранённые результаты и незавершённые тесты?')){localStorage.removeItem(LS);for(var i=1;i<=4;i++)clearState(i);renderHome();}}
  else if(act==='pick'){if(state&&!state.locked[state.idx]){state.pick[state.idx]=+b.getAttribute('data-i');saveCurrentState();renderQuiz();}}
  else if(act==='answer'){if(state&&state.pick[state.idx]!=null&&!state.locked[state.idx]){var i=state.idx;state.locked[i]=true;state.res[i]=state.pick[i]===state.qs[i].c;saveCurrentState();if(state.t.exam&&wrongCount()>4){finish(false);}else renderQuiz();}}
- else if(act==='next'){if(state.idx<state.qs.length-1){state.idx++;saveCurrentState();renderQuiz();}else finish(false);}
+ else if(act==='next'){if(state.idx<state.qs.length-1){state.idx++;saveCurrentState();wantTop=true;renderQuiz();}else finish(false);}
  else if(act==='list'){openList();}
- else if(act==='jump'){state.idx=+b.getAttribute('data-i');saveCurrentState();renderQuiz();}
+ else if(act==='jump'){state.idx=+b.getAttribute('data-i');saveCurrentState();wantTop=true;renderQuiz();}
  else if(act==='comment'||act==='explain'){
    var idx=state.idx,arr=act==='comment'?state.openC:state.openE;
    arr[idx]=!arr[idx];renderQuiz();
